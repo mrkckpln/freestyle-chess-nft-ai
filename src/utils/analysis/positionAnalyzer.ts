@@ -52,53 +52,50 @@ export class PositionAnalyzer {
     return Math.abs(evaluation) <= 0.3;
   }
 
+  private generateSymmetricPosition(): { whitePositions: Map<string, string>, blackPositions: Map<string, string> } {
+    const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    const whitePositions = new Map<string, string>();
+    const blackPositions = new Map<string, string>();
+    
+    // Tüm taşları bir diziye koy
+    const pieces = ['k', 'q', 'r', 'r', 'b', 'b', 'n', 'n'];
+    
+    // Taşları karıştır
+    for (let i = pieces.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pieces[i], pieces[j]] = [pieces[j], pieces[i]];
+    }
+    
+    // Karıştırılmış taşları simetrik olarak yerleştir
+    for (let i = 0; i < 8; i++) {
+      whitePositions.set(`${files[i]}1`, pieces[i]);
+      blackPositions.set(`${files[i]}8`, pieces[i]);
+    }
+
+    // Piyonları yerleştir
+    for (let i = 0; i < 8; i++) {
+      whitePositions.set(`${files[i]}2`, 'p');
+      blackPositions.set(`${files[i]}7`, 'p');
+    }
+
+    return { whitePositions, blackPositions };
+  }
+
   public generateRandomPosition(): string {
     const chess = new Chess();
-    // Clear the board
     chess.clear();
-    
-    // Place kings first (on the back rank)
-    const whiteKingFile = Math.floor(Math.random() * 8);
-    const blackKingFile = Math.floor(Math.random() * 8);
-    chess.put({ type: 'k', color: 'b' }, `${String.fromCharCode(97 + blackKingFile)}8` as any);
-    chess.put({ type: 'k', color: 'w' }, `${String.fromCharCode(97 + whiteKingFile)}1` as any);
 
-    // Define piece types and their quantities
-    const pieces = [
-      { type: 'q', count: 1 },
-      { type: 'r', count: 2 },
-      { type: 'b', count: 2 },
-      { type: 'n', count: 2 },
-      { type: 'p', count: 8 }
-    ];
+    const { whitePositions, blackPositions } = this.generateSymmetricPosition();
 
-    // Place pieces randomly for both colors
-    for (const color of ['w', 'b']) {
-      for (const piece of pieces) {
-        for (let i = 0; i < piece.count; i++) {
-          let placed = false;
-          while (!placed) {
-            const file = Math.floor(Math.random() * 8);
-            let rank;
-            
-            if (piece.type === 'p') {
-              // Place pawns on 2nd and 7th ranks only
-              rank = color === 'w' ? 2 : 7;
-            } else {
-              // Place other pieces on back ranks
-              rank = color === 'w' ? 1 : 8;
-            }
-            
-            const square = `${String.fromCharCode(97 + file)}${rank}` as any;
-            
-            if (!chess.get(square)) {
-              chess.put({ type: piece.type as any, color: color as any }, square);
-              placed = true;
-            }
-          }
-        }
-      }
-    }
+    // Beyaz taşları yerleştir
+    whitePositions.forEach((piece, square) => {
+      chess.put({ type: piece as any, color: 'w' }, square as any);
+    });
+
+    // Siyah taşları yerleştir
+    blackPositions.forEach((piece, square) => {
+      chess.put({ type: piece as any, color: 'b' }, square as any);
+    });
 
     return chess.fen();
   }
