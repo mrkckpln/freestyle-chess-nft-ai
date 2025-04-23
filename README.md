@@ -131,6 +131,44 @@ npm run test:e2e
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
+## 🔮 Future Plans
+
+### Frontend Improvements
+- Enhanced UI/UX with modern design principles
+- Responsive design for mobile devices
+- Dark/Light theme support
+- Advanced game analysis interface
+- Interactive move history with variations
+- Social features (chat, friend system)
+- Tournament system implementation
+
+### Gameplay Enhancements
+- Multiple time control options
+- Custom position editor
+- Opening book integration
+- Post-game analysis with engine
+- Game replay functionality
+- Puzzle system integration
+- Rating system implementation
+
+### Blockchain Features
+- Multi-chain support (Ethereum, Polygon)
+- Advanced NFT metadata
+- Marketplace integration
+- Tournament smart contracts
+- Achievement system
+- Governance token implementation
+- Play-to-earn mechanics
+
+### Technical Improvements
+- WebSocket integration for real-time features
+- Progressive Web App (PWA) support
+- Performance optimizations
+- Advanced caching strategies
+- Improved test coverage
+- CI/CD pipeline enhancement
+- Documentation expansion
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

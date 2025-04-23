@@ -1,9 +1,37 @@
 import { ethers } from 'ethers';
 
+interface FreestyleChessNFT extends ethers.BaseContract {
+  mintGameNFT(winner: string, loser: string, gameData: string, tokenURI: string, evaluation: number): Promise<ethers.ContractTransaction>;
+  getGameResult(tokenId: string): Promise<[string, string, string, bigint, number]>;
+}
+
 const CONTRACT_ABI = [
-  "function mintGameNFT(address winner, address loser, string memory gameData, string memory tokenURI, int8 evaluation) public returns (uint256)",
-  "function getGameResult(uint256 tokenId) public view returns (address winner, address loser, string memory gameData, uint256 timestamp, int8 evaluation)",
-  "event GameNFTMinted(uint256 indexed tokenId, address winner, address loser, string gameData, int8 evaluation)"
+  {
+    "inputs": [
+      {"name": "winner", "type": "address"},
+      {"name": "loser", "type": "address"},
+      {"name": "gameData", "type": "string"},
+      {"name": "tokenURI", "type": "string"},
+      {"name": "evaluation", "type": "int8"}
+    ],
+    "name": "mintGameNFT",
+    "outputs": [{"name": "", "type": "uint256"}],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{"name": "tokenId", "type": "uint256"}],
+    "name": "getGameResult",
+    "outputs": [
+      {"name": "winner", "type": "address"},
+      {"name": "loser", "type": "address"},
+      {"name": "gameData", "type": "string"},
+      {"name": "timestamp", "type": "uint256"},
+      {"name": "evaluation", "type": "int8"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
 ];
 
 declare global {
@@ -14,7 +42,7 @@ declare global {
 
 export class Web3Service {
   private provider: ethers.BrowserProvider | null = null;
-  private contract: ethers.Contract | null = null;
+  private contract: FreestyleChessNFT | null = null;
   private signer: ethers.Signer | null = null;
 
   constructor() {
@@ -29,11 +57,12 @@ export class Web3Service {
       const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
       
       if (contractAddress) {
-        this.contract = new ethers.Contract(
+        const contract = new ethers.Contract(
           contractAddress,
           CONTRACT_ABI,
           this.provider
         );
+        this.contract = contract as unknown as FreestyleChessNFT;
       }
     }
   }
@@ -85,7 +114,7 @@ export class Web3Service {
       const evaluationInt8 = Math.round(evaluation * 100);
 
       // Connect contract to signer for sending transactions
-      const contractWithSigner = this.contract.connect(this.signer);
+      const contractWithSigner = (this.contract.connect(this.signer)) as unknown as FreestyleChessNFT;
 
       // Mint the NFT
       const tx = await contractWithSigner.mintGameNFT(
@@ -97,7 +126,7 @@ export class Web3Service {
       );
 
       // Wait for transaction to be mined
-      const receipt = await tx.wait();
+      const receipt = await (tx as any).wait();
       
       // Get the token ID from the event
       const event = receipt.logs.find((log: any) => 
@@ -117,19 +146,33 @@ export class Web3Service {
     return `https://your-ipfs-gateway.com/${Date.now()}`;
   }
 
+  public async getBalance(): Promise<number> {
+    if (!this.provider || !this.signer) {
+      throw new Error('Provider or signer not initialized');
+    }
+
+    try {
+      const balance = await this.provider.getBalance(await this.signer.getAddress());
+      return Number(ethers.formatEther(balance));
+    } catch (error) {
+      console.error('Error getting balance:', error);
+      throw error;
+    }
+  }
+
   public async getGameResult(tokenId: string) {
     if (!this.contract) {
       throw new Error('Contract not initialized');
     }
 
     try {
-      const result = await this.contract.getGameResult(tokenId);
+      const [winner, loser, gameData, timestamp, evaluation] = await this.contract.getGameResult(tokenId);
       return {
-        winner: result.winner,
-        loser: result.loser,
-        gameData: result.gameData,
-        timestamp: new Date(result.timestamp.toNumber() * 1000),
-        evaluation: result.evaluation / 100
+        winner,
+        loser,
+        gameData,
+        timestamp: new Date(Number(timestamp) * 1000),
+        evaluation: Number(evaluation) / 100
       };
     } catch (error) {
       console.error('Error getting game result:', error);
