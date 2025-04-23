@@ -7,6 +7,15 @@ import { Web3Service } from '../../utils/web3/web3Service';
 import { ChessClock } from './ChessClock';
 import { AIAnalyzer } from './AIAnalyzer';
 
+type Square = 'a1' | 'a2' | 'a3' | 'a4' | 'a5' | 'a6' | 'a7' | 'a8' |
+              'b1' | 'b2' | 'b3' | 'b4' | 'b5' | 'b6' | 'b7' | 'b8' |
+              'c1' | 'c2' | 'c3' | 'c4' | 'c5' | 'c6' | 'c7' | 'c8' |
+              'd1' | 'd2' | 'd3' | 'd4' | 'd5' | 'd6' | 'd7' | 'd8' |
+              'e1' | 'e2' | 'e3' | 'e4' | 'e5' | 'e6' | 'e7' | 'e8' |
+              'f1' | 'f2' | 'f3' | 'f4' | 'f5' | 'f6' | 'f7' | 'f8' |
+              'g1' | 'g2' | 'g3' | 'g4' | 'g5' | 'g6' | 'g7' | 'g8' |
+              'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'h7' | 'h8';
+
 interface TimeControl {
   initial: number; // Initial time in seconds
   increment: number; // Increment per move in seconds
@@ -49,6 +58,10 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   const [showMintSuccess, setShowMintSuccess] = useState(false);
   const [mintedTokenId, setMintedTokenId] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [bestMove, setBestMove] = useState<string | null>(null);
+  const [customArrows, setCustomArrows] = useState<any[]>([]);
+  const [isShowingBestMove, setIsShowingBestMove] = useState(false);
+  const [analyzedMove, setAnalyzedMove] = useState<{from: string, to: string} | null>(null);
 
   useEffect(() => {
     return () => {
@@ -95,6 +108,44 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     setBlackTime(timeControl.initial);
   }, [timeControl]);
 
+  const analyzeBestMove = async () => {
+    try {
+      setIsShowingBestMove(true);
+      setIsAnalyzing(true);
+      setCustomArrows([]); // Clear any existing arrows
+
+      // Get the analysis from Stockfish
+      const analysis = await analyzer.analyzePositionWithMoves(game.fen());
+      
+      if (analysis && analysis.bestMove) {
+        // Convert bestMove string to from/to squares (e.g., "e2e4" -> "e2", "e4")
+        const from = analysis.bestMove.slice(0, 2) as Square;
+        const to = analysis.bestMove.slice(2, 4) as Square;
+        
+        // Set the analyzed move
+        setAnalyzedMove({ from, to });
+        
+        // Show the arrow for the best move
+        setCustomArrows([[from, to, 'green']]);
+        
+        // Store the best move
+        setBestMove(analysis.bestMove);
+      }
+    } catch (error) {
+      console.error('Error analyzing position:', error);
+      alert('Error analyzing position. Please try again.');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const hideBestMove = () => {
+    setIsShowingBestMove(false);
+    setCustomArrows([]); // Clear the arrows
+    setAnalyzedMove(null);
+    setBestMove(null);
+  };
+
   const connectWallet = async () => {
     try {
       const address = await web3Service.connectWallet();
@@ -103,7 +154,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
       setBalance(balance);
     } catch (error) {
       console.error('Error connecting wallet:', error);
-      alert('Error connecting wallet. Please make sure you have the correct wallet installed (MetaMask for Ethereum or Phantom for Solana).');
+      alert('Error connecting wallet. Please make sure you have the correct wallet installed.');
     }
   };
 
@@ -114,6 +165,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     setWhiteTime(timeControl.initial);
     setBlackTime(timeControl.initial);
     setCurrentPlayer('w');
+    setCustomArrows([]);
     let isBalanced = false;
     let fen = '';
     let attempts = 0;
@@ -151,9 +203,13 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
       const newGame = new Chess(game.fen());
       setGame(newGame);
       setGameHistory(prev => [...prev, newGame.fen()]);
-
-      // Start analysis after move
-      setIsAnalyzing(true);
+      
+      // Reset best move state
+      setCustomArrows([]);
+      setIsShowingBestMove(false);
+      setAnalyzedMove(null);
+      setBestMove(null);
+      setIsAnalyzing(false);
 
       // Start clock if it's the first move
       if (!isClockRunning && gameHistory.length === 1) {
@@ -167,15 +223,13 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
         setBlackTime(prev => prev + timeControl.increment);
       }
       setCurrentPlayer(currentPlayer === 'w' ? 'b' : 'w');
-      setLastMoveTime(Date.now());
       
       // Check game state
       if (newGame.isGameOver()) {
         setGameEnded(true);
         setIsClockRunning(false);
-        setIsAnalyzing(false);
         if (newGame.isCheckmate()) {
-          alert(`Checkmate! ${currentPlayer === 'w' ? 'White' : 'Black'} wins! You can now mint this game as an NFT.`);
+          alert(`Checkmate! ${currentPlayer === 'w' ? 'White' : 'Black'} wins!`);
         } else if (newGame.isDraw()) {
           alert('Game ended in a draw!');
         } else if (newGame.isStalemate()) {
@@ -260,7 +314,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
         </div>
         {evaluation !== null && (
           <div className="flex items-center gap-2 px-3 py-1 bg-white rounded-lg shadow">
-            <span className="text-sm font-medium text-gray-700">Evaluation:</span>
+            <span className="text-sm font-medium text-gray-700">Position:</span>
             <span className={`text-sm font-bold ${evaluation > 0 ? 'text-blue-600' : evaluation < 0 ? 'text-red-600' : 'text-gray-600'}`}>
               {evaluation > 0 ? '+' : ''}{evaluation.toFixed(2)}
             </span>
@@ -278,6 +332,8 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
               position={game.fen()} 
               onPieceDrop={onPieceDrop}
               boardWidth={574}
+              customArrows={customArrows}
+              customArrowColor="#00ff00"
               customBoardStyle={{
                 borderRadius: '8px',
                 boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
@@ -290,6 +346,35 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
 
         {/* Right Side Panel */}
         <div className="flex flex-col gap-4 w-[300px]">
+          {/* Show Best Move Button */}
+          <button
+            className={`w-full px-4 py-3 rounded-lg font-medium text-white shadow-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${
+              isShowingBestMove
+                ? 'bg-red-500 hover:bg-red-600'
+                : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700'
+            }`}
+            onClick={isShowingBestMove ? hideBestMove : analyzeBestMove}
+            disabled={isGenerating || gameEnded}
+          >
+            {isAnalyzing ? (
+              <div className="flex items-center justify-center gap-2">
+                <div className="w-5 h-5 border-t-2 border-white rounded-full animate-spin"></div>
+                <span>Analyzing...</span>
+              </div>
+            ) : isShowingBestMove ? (
+              'Hide Best Move'
+            ) : (
+              'Show Best Move'
+            )}
+          </button>
+
+          {/* AI Analysis Panel */}
+          <AIAnalyzer
+            fen={game.fen()}
+            isAnalyzing={isAnalyzing}
+            currentPlayer={currentPlayer}
+          />
+
           {/* Clocks */}
           <div className="flex flex-col justify-between h-[600px]">
             {/* Black Clock */}
@@ -388,13 +473,6 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
               </div>
             </button>
           </div>
-
-          {/* AI Analysis */}
-          <AIAnalyzer
-            fen={game.fen()}
-            isAnalyzing={isAnalyzing}
-            currentPlayer={currentPlayer}
-          />
         </div>
       </div>
 

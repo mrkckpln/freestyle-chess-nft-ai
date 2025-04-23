@@ -17,33 +17,60 @@ export class PositionAnalyzer {
 
   constructor() {
     if (typeof window !== 'undefined') {
-      this.worker = new Worker('/stockfish.js');
-      this.initEngine();
+      this.initWorker();
     }
   }
 
-  private initEngine(): void {
-    if (!this.worker) return;
-
-    this.worker.onmessage = (e) => {
-      const msg = e.data;
-      if (msg === 'uciok') {
-        this.worker?.postMessage('isready');
-      } else if (msg === 'readyok') {
-        this.isReady = true;
-      } else if (msg.startsWith('info depth')) {
-        this.handleAnalysisInfo(msg);
-      } else if (msg.startsWith('bestmove')) {
-        const bestMove = msg.split(' ')[1];
-        if (this.lastAnalysis && this.currentResolve) {
-          this.lastAnalysis.bestMove = bestMove;
-          this.currentResolve(this.lastAnalysis);
-          this.lastAnalysis = null;
+  private async initWorker(): Promise<void> {
+    try {
+      // Create a new worker
+      this.worker = new Worker('/stockfish.js');
+      
+      // Set up message handler
+      this.worker.onmessage = (e) => {
+        const msg = e.data;
+        if (msg === 'uciok') {
+          this.worker?.postMessage('isready');
+        } else if (msg === 'readyok') {
+          this.isReady = true;
+          console.log('Stockfish engine is ready');
+        } else if (msg.startsWith('info depth')) {
+          this.handleAnalysisInfo(msg);
+        } else if (msg.startsWith('bestmove')) {
+          const bestMove = msg.split(' ')[1];
+          if (this.lastAnalysis && this.currentResolve) {
+            this.lastAnalysis.bestMove = bestMove;
+            this.currentResolve(this.lastAnalysis);
+            this.lastAnalysis = null;
+          }
         }
-      }
-    };
-    this.worker.postMessage('uci');
-    this.worker.postMessage('setoption name MultiPV value 3'); // Show top 3 moves
+      };
+
+      // Set up error handler
+      this.worker.onerror = (error) => {
+        console.error('Stockfish worker error:', error);
+        this.isReady = false;
+        this.worker = null;
+      };
+
+      // Initialize UCI mode
+      this.worker.postMessage('uci');
+      this.worker.postMessage('setoption name MultiPV value 3');
+
+      // Wait for engine to be ready
+      await new Promise<void>((resolve) => {
+        const checkReady = setInterval(() => {
+          if (this.isReady) {
+            clearInterval(checkReady);
+            resolve();
+          }
+        }, 100);
+      });
+    } catch (error) {
+      console.error('Error initializing Stockfish worker:', error);
+      this.isReady = false;
+      this.worker = null;
+    }
   }
 
   private handleAnalysisInfo(msg: string): void {
@@ -106,16 +133,14 @@ export class PositionAnalyzer {
     }>;
     depth: number;
   }> {
-    if (!this.worker) {
-      throw new Error('Stockfish worker not initialized');
+    if (!this.worker || !this.isReady) {
+      await this.initWorker();
+      if (!this.worker || !this.isReady) {
+        throw new Error('Stockfish worker not initialized');
+      }
     }
 
     return new Promise((resolve) => {
-      if (!this.isReady) {
-        setTimeout(() => this.analyzePositionWithMoves(fen).then(resolve), 100);
-        return;
-      }
-
       this.currentResolve = resolve;
       this.lastAnalysis = null;
       this.worker?.postMessage('position fen ' + fen);
@@ -124,14 +149,14 @@ export class PositionAnalyzer {
   }
 
   public async analyzePosition(fen: string): Promise<number> {
-    if (!this.worker) return 0;
+    if (!this.worker || !this.isReady) {
+      await this.initWorker();
+      if (!this.worker || !this.isReady) {
+        throw new Error('Stockfish worker not initialized');
+      }
+    }
 
     return new Promise((resolve) => {
-      if (!this.isReady) {
-        setTimeout(() => this.analyzePosition(fen).then(resolve), 100);
-        return;
-      }
-
       this.currentResolve = resolve;
       this.worker?.postMessage('position fen ' + fen);
       this.worker?.postMessage('go depth 20');
