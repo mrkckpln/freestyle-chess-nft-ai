@@ -8,6 +8,15 @@ const nextConfig = {
       net: false,
       tls: false,
     };
+
+    // Add rule for Solidity files
+    config.module.rules.push({
+      test: /\.sol$/,
+      use: 'raw-loader',
+    });
+
     return config;
   },
-} 
+}
+
+module.exports = nextConfig; 
