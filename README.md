@@ -1,15 +1,32 @@
 # Freestyle Chess NFT Platform
 
-A decentralized platform that combines Freestyle Chess with NFT rewards on Solana blockchain. Players can participate in Freestyle Chess matches where the initial position is randomized (but balanced), and earn NFT rewards based on their performance.
+A decentralized AI-powered chess learning platform that combines Freestyle Chess with NFT rewards on Solana blockchain. The platform uses advanced AI agents to analyze positions, provide insights, and help players improve their chess skills while earning NFTs.
 
 
 ## 🎮 Features
+
+- **AI-Powered Chess Analysis**
+  - Real-time position evaluation with Stockfish
+  - Personalized move suggestions
+  - Interactive learning experience
+  - Pattern recognition and tactical analysis
+  - Opening repertoire recommendations
 
 - **Freestyle Chess Gameplay**
   - Randomized but balanced starting positions
   - Position evaluation using Stockfish engine
   - Real-time chess gameplay with react-chessboard
   - Fair starting positions (0.0 evaluation)
+  - Different colored square bishops for balance
+
+- **AI Agent Features**
+  - Dynamic position analysis
+  - Strategic move recommendations
+  - Opening theory explanations
+  - Tactical pattern recognition
+  - Real-time game commentary
+  - Personalized learning paths
+  - Mistake analysis and improvement suggestions
 
 - **Blockchain Integration**
   - Solana blockchain integration
@@ -22,6 +39,7 @@ A decentralized platform that combines Freestyle Chess with NFT rewards on Solan
   - Automated position balancing
   - Move validation and game state management
   - Responsive chess board UI
+  - AI-powered game insights
 
 ## 🛠️ Tech Stack
 
@@ -168,6 +186,15 @@ npm run test:e2e
 - Improved test coverage
 - CI/CD pipeline enhancement
 - Documentation expansion
+
+### AI Agent Enhancements
+- Advanced pattern recognition algorithms
+- Machine learning based player profiling
+- Adaptive difficulty levels
+- Natural language game commentary
+- Interactive chess lessons
+- Personalized training programs
+- Opening repertoire builder
 
 ## 📄 License
 
