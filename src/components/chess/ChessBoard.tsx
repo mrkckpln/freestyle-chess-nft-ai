@@ -5,6 +5,7 @@ import { PositionAnalyzer } from '../../utils/analysis/positionAnalyzer';
 import { SolanaWeb3Service } from '../../utils/web3/solanaWeb3Service';
 import { Web3Service } from '../../utils/web3/web3Service';
 import { ChessClock } from './ChessClock';
+import { AIAnalyzer } from './AIAnalyzer';
 
 interface TimeControl {
   initial: number; // Initial time in seconds
@@ -47,6 +48,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   const [lastMoveTime, setLastMoveTime] = useState<number | null>(null);
   const [showMintSuccess, setShowMintSuccess] = useState(false);
   const [mintedTokenId, setMintedTokenId] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -150,6 +152,9 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
       setGame(newGame);
       setGameHistory(prev => [...prev, newGame.fen()]);
 
+      // Start analysis after move
+      setIsAnalyzing(true);
+
       // Start clock if it's the first move
       if (!isClockRunning && gameHistory.length === 1) {
         setIsClockRunning(true);
@@ -168,6 +173,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
       if (newGame.isGameOver()) {
         setGameEnded(true);
         setIsClockRunning(false);
+        setIsAnalyzing(false);
         if (newGame.isCheckmate()) {
           alert(`Checkmate! ${currentPlayer === 'w' ? 'White' : 'Black'} wins! You can now mint this game as an NFT.`);
         } else if (newGame.isDraw()) {
@@ -282,103 +288,113 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
           </div>
         </div>
 
-        {/* Clocks Container - Right Side */}
-        <div className="flex flex-col justify-center gap-2 w-[200px] h-[600px]">
-          {/* Black Clock */}
-          <button
-            className={`w-full relative overflow-hidden rounded-xl transition-all duration-300 transform cursor-pointer h-[290px] ${
-              currentPlayer === 'b' && isClockRunning
-                ? 'scale-105 shadow-lg'
-                : 'scale-100 shadow-md'
-            }`}
-          >
-            <div
-              className={`absolute inset-0 transition-opacity duration-300 ${
+        {/* Right Side Panel */}
+        <div className="flex flex-col gap-4 w-[300px]">
+          {/* Clocks */}
+          <div className="flex flex-col justify-between h-[600px]">
+            {/* Black Clock */}
+            <button
+              className={`w-full relative overflow-hidden rounded-xl transition-all duration-300 transform cursor-pointer h-[290px] ${
                 currentPlayer === 'b' && isClockRunning
-                  ? 'opacity-100'
-                  : 'opacity-0'
+                  ? 'scale-105 shadow-lg'
+                  : 'scale-100 shadow-md'
               }`}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-gray-700 to-gray-800"></div>
-              <div className="absolute inset-0 bg-gradient-to-r from-gray-600 to-gray-700 animate-pulse"></div>
-            </div>
+              <div
+                className={`absolute inset-0 transition-opacity duration-300 ${
+                  currentPlayer === 'b' && isClockRunning
+                    ? 'opacity-100'
+                    : 'opacity-0'
+                }`}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-gray-700 to-gray-800"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-gray-600 to-gray-700 animate-pulse"></div>
+              </div>
 
-            <div
-              className={`relative p-4 h-full flex flex-col justify-center ${
-                currentPlayer === 'b' && isClockRunning
-                  ? 'text-white'
-                  : 'bg-white text-gray-800'
-              }`}
-            >
-              <div className="text-center">
-                <div className="text-2xl font-semibold mb-4 flex items-center justify-center gap-2">
-                  <span>Black</span>
-                  {currentPlayer === 'b' && isClockRunning && (
-                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                  )}
-                </div>
-                <div 
-                  className={`text-5xl font-mono font-bold transition-colors duration-300 ${
-                    blackTime <= 30 
-                      ? 'text-red-500 animate-pulse' 
-                      : blackTime <= 60 
-                        ? 'text-yellow-500'
-                        : ''
-                  }`}
-                >
-                  {formatTime(blackTime)}
+              <div
+                className={`relative p-4 h-full flex flex-col justify-center ${
+                  currentPlayer === 'b' && isClockRunning
+                    ? 'text-white'
+                    : 'bg-white text-gray-800'
+                }`}
+              >
+                <div className="text-center">
+                  <div className="text-2xl font-semibold mb-4 flex items-center justify-center gap-2">
+                    <span>Black</span>
+                    {currentPlayer === 'b' && isClockRunning && (
+                      <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                    )}
+                  </div>
+                  <div 
+                    className={`text-5xl font-mono font-bold transition-colors duration-300 ${
+                      blackTime <= 30 
+                        ? 'text-red-500 animate-pulse' 
+                        : blackTime <= 60 
+                          ? 'text-yellow-500'
+                          : ''
+                    }`}
+                  >
+                    {formatTime(blackTime)}
+                  </div>
                 </div>
               </div>
-            </div>
-          </button>
+            </button>
 
-          {/* White Clock */}
-          <button
-            className={`w-full relative overflow-hidden rounded-xl transition-all duration-300 transform cursor-pointer h-[290px] ${
-              currentPlayer === 'w' && isClockRunning
-                ? 'scale-105 shadow-lg'
-                : 'scale-100 shadow-md'
-            }`}
-          >
-            <div
-              className={`absolute inset-0 transition-opacity duration-300 ${
+            {/* White Clock */}
+            <button
+              className={`w-full relative overflow-hidden rounded-xl transition-all duration-300 transform cursor-pointer h-[290px] ${
                 currentPlayer === 'w' && isClockRunning
-                  ? 'opacity-100'
-                  : 'opacity-0'
+                  ? 'scale-105 shadow-lg'
+                  : 'scale-100 shadow-md'
               }`}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-600"></div>
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-blue-500 animate-pulse"></div>
-            </div>
+              <div
+                className={`absolute inset-0 transition-opacity duration-300 ${
+                  currentPlayer === 'w' && isClockRunning
+                    ? 'opacity-100'
+                    : 'opacity-0'
+                }`}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-600"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-blue-500 animate-pulse"></div>
+              </div>
 
-            <div
-              className={`relative p-4 h-full flex flex-col justify-center ${
-                currentPlayer === 'w' && isClockRunning
-                  ? 'text-white'
-                  : 'bg-white text-gray-800'
-              }`}
-            >
-              <div className="text-center">
-                <div className="text-2xl font-semibold mb-4 flex items-center justify-center gap-2">
-                  <span>White</span>
-                  {currentPlayer === 'w' && isClockRunning && (
-                    <div className="w-2 h-2 rounded-full bg-blue-300 animate-pulse"></div>
-                  )}
-                </div>
-                <div 
-                  className={`text-5xl font-mono font-bold transition-colors duration-300 ${
-                    whiteTime <= 30 
-                      ? 'text-red-500 animate-pulse' 
-                      : whiteTime <= 60 
-                        ? 'text-yellow-500'
-                        : ''
-                  }`}
-                >
-                  {formatTime(whiteTime)}
+              <div
+                className={`relative p-4 h-full flex flex-col justify-center ${
+                  currentPlayer === 'w' && isClockRunning
+                    ? 'text-white'
+                    : 'bg-white text-gray-800'
+                }`}
+              >
+                <div className="text-center">
+                  <div className="text-2xl font-semibold mb-4 flex items-center justify-center gap-2">
+                    <span>White</span>
+                    {currentPlayer === 'w' && isClockRunning && (
+                      <div className="w-2 h-2 rounded-full bg-blue-300 animate-pulse"></div>
+                    )}
+                  </div>
+                  <div 
+                    className={`text-5xl font-mono font-bold transition-colors duration-300 ${
+                      whiteTime <= 30 
+                        ? 'text-red-500 animate-pulse' 
+                        : whiteTime <= 60 
+                          ? 'text-yellow-500'
+                          : ''
+                    }`}
+                  >
+                    {formatTime(whiteTime)}
+                  </div>
                 </div>
               </div>
-            </div>
-          </button>
+            </button>
+          </div>
+
+          {/* AI Analysis */}
+          <AIAnalyzer
+            fen={game.fen()}
+            isAnalyzing={isAnalyzing}
+            currentPlayer={currentPlayer}
+          />
         </div>
       </div>
 

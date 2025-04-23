@@ -3,7 +3,17 @@ import { Chess } from 'chess.js';
 export class PositionAnalyzer {
   private worker: Worker | null = null;
   private isReady: boolean = false;
-  private currentResolve: ((value: number) => void) | null = null;
+  private currentResolve: ((value: any) => void) | null = null;
+  private lastAnalysis: {
+    evaluation: number;
+    bestMove: string;
+    topMoves: Array<{
+      move: string;
+      evaluation: number;
+      continuation: string;
+    }>;
+    depth: number;
+  } | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -21,14 +31,96 @@ export class PositionAnalyzer {
         this.worker?.postMessage('isready');
       } else if (msg === 'readyok') {
         this.isReady = true;
-      } else if (msg.startsWith('info depth') && msg.includes('score cp')) {
-        const score = msg.match(/score cp (-?\d+)/);
-        if (score && this.currentResolve) {
-          this.currentResolve(parseInt(score[1]) / 100);
+      } else if (msg.startsWith('info depth')) {
+        this.handleAnalysisInfo(msg);
+      } else if (msg.startsWith('bestmove')) {
+        const bestMove = msg.split(' ')[1];
+        if (this.lastAnalysis && this.currentResolve) {
+          this.lastAnalysis.bestMove = bestMove;
+          this.currentResolve(this.lastAnalysis);
+          this.lastAnalysis = null;
         }
       }
     };
     this.worker.postMessage('uci');
+    this.worker.postMessage('setoption name MultiPV value 3'); // Show top 3 moves
+  }
+
+  private handleAnalysisInfo(msg: string): void {
+    const depthMatch = msg.match(/depth (\d+)/);
+    const scoreMatch = msg.match(/score cp (-?\d+)/);
+    const mateMatch = msg.match(/score mate (-?\d+)/);
+    const pvMatch = msg.match(/pv (.+?)(?=\s+(?:bmc|hashfull|nps|tbhits|time|nodes|score|depth|seldepth|multipv|$))/);
+    const multipvMatch = msg.match(/multipv (\d+)/);
+
+    if (!depthMatch?.[1] || (!scoreMatch?.[1] && !mateMatch?.[1]) || !pvMatch?.[1] || !multipvMatch?.[1]) {
+      return;
+    }
+
+    const depth = depthMatch[1];
+    const score = scoreMatch?.[1];
+    const mate = mateMatch?.[1];
+    const pv = pvMatch[1];
+    const multipv = multipvMatch[1];
+
+    const evaluation = mate ? 
+      (parseInt(mate) > 0 ? 100 + parseInt(mate) : -100 - Math.abs(parseInt(mate))) : 
+      parseInt(score || '0') / 100;
+    
+    if (!this.lastAnalysis) {
+      this.lastAnalysis = {
+        evaluation: 0,
+        bestMove: '',
+        topMoves: [],
+        depth: parseInt(depth)
+      };
+    }
+
+    const moveInfo = {
+      move: pv.split(' ')[0],
+      evaluation: evaluation,
+      continuation: pv.split(' ').slice(1, 4).join(' ')
+    };
+
+    const pvNum = parseInt(multipv) - 1;
+    if (pvNum === 0) {
+      this.lastAnalysis.evaluation = evaluation;
+    }
+
+    if (this.lastAnalysis.topMoves.length <= pvNum) {
+      this.lastAnalysis.topMoves.push(moveInfo);
+    } else {
+      this.lastAnalysis.topMoves[pvNum] = moveInfo;
+    }
+
+    this.lastAnalysis.depth = parseInt(depth);
+  }
+
+  public async analyzePositionWithMoves(fen: string): Promise<{
+    evaluation: number;
+    bestMove: string;
+    topMoves: Array<{
+      move: string;
+      evaluation: number;
+      continuation: string;
+    }>;
+    depth: number;
+  }> {
+    if (!this.worker) {
+      throw new Error('Stockfish worker not initialized');
+    }
+
+    return new Promise((resolve) => {
+      if (!this.isReady) {
+        setTimeout(() => this.analyzePositionWithMoves(fen).then(resolve), 100);
+        return;
+      }
+
+      this.currentResolve = resolve;
+      this.lastAnalysis = null;
+      this.worker?.postMessage('position fen ' + fen);
+      this.worker?.postMessage('go depth 20 multipv 3');
+    });
   }
 
   public async analyzePosition(fen: string): Promise<number> {
