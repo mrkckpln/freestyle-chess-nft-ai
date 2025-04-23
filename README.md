@@ -2,7 +2,6 @@
 
 A decentralized platform that combines Freestyle Chess with NFT rewards on Solana blockchain. Players can participate in Freestyle Chess matches where the initial position is randomized (but balanced), and earn NFT rewards based on their performance.
 
-![Freestyle Chess NFT](https://your-image-url-here.png)
 
 ## 🎮 Features
 
@@ -142,9 +141,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [react-chessboard](https://github.com/Clariity/react-chessboard) for the chess UI
 - [Solana](https://solana.com/) for the blockchain infrastructure
 - [chess.js](https://github.com/jhlywa/chess.js) for chess logic
-
-## 📞 Contact
-
-Your Name - [@your_twitter](https://twitter.com/your_twitter)
-
-Project Link: [https://github.com/mrkckpln/freestyle-chess-nft-ai](https://github.com/mrkckpln/freestyle-chess-nft-ai)
