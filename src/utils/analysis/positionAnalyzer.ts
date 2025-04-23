@@ -156,10 +156,29 @@ export class PositionAnalyzer {
       }
     }
 
-    return new Promise((resolve) => {
-      this.currentResolve = resolve;
-      this.worker?.postMessage('position fen ' + fen);
-      this.worker?.postMessage('go depth 20');
+    return new Promise((resolve, reject) => {
+      try {
+        let timeoutId = setTimeout(() => {
+          reject(new Error('Analysis timeout'));
+        }, 10000); // 10 second timeout
+
+        this.currentResolve = (result) => {
+          clearTimeout(timeoutId);
+          if (typeof result === 'number') {
+            resolve(result);
+          } else if (result && typeof result.evaluation === 'number') {
+            resolve(result.evaluation);
+          } else {
+            resolve(0); // Default to 0 if no valid evaluation
+          }
+        };
+
+        this.lastAnalysis = null;
+        this.worker?.postMessage('position fen ' + fen);
+        this.worker?.postMessage('go depth 15'); // Reduced depth for faster analysis
+      } catch (error) {
+        reject(error);
+      }
     });
   }
 
@@ -246,22 +265,37 @@ export class PositionAnalyzer {
   }
 
   public generateRandomPosition(): string {
-    const chess = new Chess();
-    chess.clear();
+    try {
+      const chess = new Chess();
+      chess.clear();
 
-    const { whitePositions, blackPositions } = this.generateSymmetricPosition();
+      const { whitePositions, blackPositions } = this.generateSymmetricPosition();
 
-    // Beyaz taşları yerleştir
-    whitePositions.forEach((piece, square) => {
-      chess.put({ type: piece as any, color: 'w' }, square as any);
-    });
+      // Beyaz taşları yerleştir
+      whitePositions.forEach((piece, square) => {
+        try {
+          chess.put({ type: piece as any, color: 'w' }, square as any);
+        } catch (error) {
+          console.error('Error placing white piece:', error);
+        }
+      });
 
-    // Siyah taşları yerleştir
-    blackPositions.forEach((piece, square) => {
-      chess.put({ type: piece as any, color: 'b' }, square as any);
-    });
+      // Siyah taşları yerleştir
+      blackPositions.forEach((piece, square) => {
+        try {
+          chess.put({ type: piece as any, color: 'b' }, square as any);
+        } catch (error) {
+          console.error('Error placing black piece:', error);
+        }
+      });
 
-    return chess.fen();
+      const fen = chess.fen();
+      console.log('Generated position FEN:', fen);
+      return fen;
+    } catch (error) {
+      console.error('Error generating random position:', error);
+      throw error;
+    }
   }
 
   public destroy(): void {

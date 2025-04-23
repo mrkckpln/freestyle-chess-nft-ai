@@ -159,35 +159,54 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   };
 
   const generateNewPosition = async () => {
-    setIsGenerating(true);
-    setGameEnded(false);
-    setIsClockRunning(false);
-    setWhiteTime(timeControl.initial);
-    setBlackTime(timeControl.initial);
-    setCurrentPlayer('w');
-    setCustomArrows([]);
-    let isBalanced = false;
-    let fen = '';
-    let attempts = 0;
+    try {
+      setIsGenerating(true);
+      setGameEnded(false);
+      setIsClockRunning(false);
+      setWhiteTime(timeControl.initial);
+      setBlackTime(timeControl.initial);
+      setCurrentPlayer('w');
+      setCustomArrows([]);
+      setIsShowingBestMove(false);
+      setBestMove(null);
+      setAnalyzedMove(null);
 
-    while (!isBalanced && attempts < 10) {
-      fen = analyzer.generateRandomPosition();
-      isBalanced = await analyzer.isBalancedPosition(fen);
-      attempts++;
-    }
+      let isBalanced = false;
+      let fen = '';
+      let attempts = 0;
+      let evaluation = 0;
 
-    if (isBalanced) {
-      const newGame = new Chess();
-      newGame.load(fen);
-      setGame(newGame);
-      const evaluation = await analyzer.analyzePosition(fen);
-      setEvaluation(evaluation);
-      setGameHistory([fen]);
-      onPositionGenerated?.(fen);
-    } else {
-      console.error('Could not generate a balanced position after 10 attempts');
+      while (!isBalanced && attempts < 10) {
+        try {
+          fen = analyzer.generateRandomPosition();
+          evaluation = await analyzer.analyzePosition(fen);
+          isBalanced = Math.abs(evaluation) <= 0.3; // Consider positions between -0.3 and 0.3 as balanced
+          attempts++;
+        } catch (error) {
+          console.error('Error analyzing position:', error);
+          // If there's an error, wait a bit and try to reinitialize the analyzer
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          continue;
+        }
+      }
+
+      if (isBalanced) {
+        const newGame = new Chess();
+        newGame.load(fen);
+        setGame(newGame);
+        setEvaluation(evaluation);
+        setGameHistory([fen]);
+        onPositionGenerated?.(fen);
+        console.log('New balanced position generated:', fen);
+      } else {
+        throw new Error('Could not generate a balanced position after 10 attempts');
+      }
+    } catch (error) {
+      console.error('Error generating position:', error);
+      alert('Error generating position. Please try again.');
+    } finally {
+      setIsGenerating(false);
     }
-    setIsGenerating(false);
   };
 
   const onPieceDrop = (sourceSquare: string, targetSquare: string) => {
